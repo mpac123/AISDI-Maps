@@ -12,7 +12,7 @@ using Map = aisdi::HashMap<K, V>;
 
 void perfomTest()
 {
-  HashMap<int, std::string> map;
+  Map<int,std::string> map;
   map[1] = "TODO";
 }
 

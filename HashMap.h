@@ -38,6 +38,7 @@ private:
   
   ~HashMap()
   {
+    clear();
     delete[] HashTable;
   }
 
@@ -47,14 +48,22 @@ private:
       HashTable[hashFunction((*it).first)].push_back(*it);
   }
 
-  HashMap(const HashMap& other)
+  HashMap(const HashMap& other) : HashMap()
   {
-    *this=other;
+    clear();
+    for (auto it=other.begin(); it != other.end(); ++it)
+        HashTable[hashFunction((*it).first)].push_back(*it);
+
   }
 
-  HashMap(HashMap&& other)
+  HashMap(HashMap&& other) : HashMap()
   {
-    *this=std::move(other);
+    clear();
+    for (auto it=other.begin(); it != other.end(); ++it)
+        HashTable[hashFunction((*it).first)].push_back(*it);
+    //delete[] other.HashTable;
+    //other.HashTable=nullptr;
+    other.clear();
   }
 
   HashMap& operator=(const HashMap& other)
@@ -62,6 +71,9 @@ private:
     if(this!=&other)
     {
       clear();
+      delete[] HashTable;
+      HashTable = new std::list<value_type>[SIZE]; 
+      
       for (auto it=other.begin(); it != other.end(); ++it)
         HashTable[hashFunction((*it).first)].push_back(*it);
     }
@@ -73,9 +85,15 @@ private:
     if (this!=&other)
     {
       clear();
-      HashTable=other.HashTable;
-      //other.tab=nullptr;
+      delete[] HashTable;
+      HashTable = new std::list<value_type>[SIZE]; 
+      
+      for (auto it=other.begin(); it != other.end(); ++it)
+        HashTable[hashFunction((*it).first)].push_back(*it);
     }
+    //delete[] other.HashTable;
+    //other.HashTable=nullptr;
+    other.clear();
     return *this;
   }
 
@@ -102,7 +120,15 @@ private:
 public:
   mapped_type& operator[](const key_type& key)
   {
-    return valueOf(key);
+    size_type Nr = hashFunction(key);
+    for (auto it=HashTable[Nr].begin(); it!=HashTable[Nr].end(); ++it)
+      if ((*it).first==key)
+        return (*it).second;
+    
+    HashTable[Nr].push_back(std::make_pair(key,mapped_type{}));
+    auto it=HashTable[Nr].end();
+    --it;
+    return (*it).second;
   }
 
   const mapped_type& valueOf(const key_type& key) const
@@ -130,7 +156,7 @@ public:
     for (auto it=HashTable[Nr].begin(); it!=HashTable[Nr].end(); ++it)
       if ((*it).first==key)
         return ConstIterator(this, it, Nr);
-    throw std::out_of_range("find()");
+    return end();
   }
 
   iterator find(const key_type& key)
@@ -139,20 +165,30 @@ public:
     for (auto it=HashTable[Nr].begin(); it!=HashTable[Nr].end(); ++it)
       if ((*it).first==key)
         return Iterator(this, it, Nr);
-    throw std::out_of_range("find()");
+    return end();
   }
 
   void remove(const key_type& key)
   {
+    if (isEmpty())
+      throw std::out_of_range("remove from empty map");
     size_type Nr = hashFunction(key);
     for (auto it=HashTable[Nr].begin(); it!=HashTable[Nr].end(); ++it)
       if ((*it).first==key)
+      {
         HashTable[Nr].erase(it);
+        return;
+      }
+    throw std::out_of_range("key doesn't exist");
   }
 
   void remove(const const_iterator& it)
   {
-    HashTable[it.index].erase(it.iter);
+    if (it==end())
+      throw std::out_of_range("attempt to remove end");
+    if(HashTable[it.index].empty())
+      return;
+    HashTable[(it.index)].erase(it.iter);
   }
 
   size_type getSize() const
@@ -184,15 +220,15 @@ public:
     for(size_type i=0; i<SIZE; ++i)
       if(!HashTable[i].empty())
         return Iterator(this,HashTable[i].begin(),i);
-    throw std::out_of_range("empty");
+    return end();
   }
 
   iterator end()
   {
-    for(size_type i=SIZE-1; i>=0; --i)
-     if(!HashTable[i].empty())
-        return Iterator(this,--HashTable[i].end(),i);
-    throw std::out_of_range("empty");
+    //for(size_type i=SIZE-1; i>=0; --i)
+     //if(!HashTable[i].empty())
+       // return Iterator(this,--HashTable[i].end(),i);
+    return Iterator(this,HashTable[SIZE].end(),SIZE);
   }
 
   const_iterator cbegin() const
@@ -200,15 +236,15 @@ public:
     for(size_type i=0; i<SIZE; ++i)
       if(!HashTable[i].empty())
         return ConstIterator(this,HashTable[i].begin(),i);
-    throw std::out_of_range("empty");
+    return cend();
   }
 
   const_iterator cend() const
   {
-        for(size_type i=SIZE-1; i>=0; --i)
-     if(!HashTable[i].empty())
-        return ConstIterator(this,--HashTable[i].end(),i);
-    throw std::out_of_range("empty");
+     //   for(size_type i=SIZE-1; i>=0; --i)
+     //if(!HashTable[i].empty())
+       // return ConstIterator(this,--HashTable[i].end(),i);
+    return ConstIterator(this,HashTable[SIZE].end(),SIZE);
   }
 
   const_iterator begin() const
@@ -234,8 +270,9 @@ public:
 
 private:
     const HashMap *myMap;
-    size_type index;
     list_iter iter;
+    size_type index;
+    
     friend void HashMap<KeyType, ValueType>::remove(const const_iterator&);
     
 public:
@@ -250,14 +287,18 @@ public:
     if (*this == myMap->end())
             throw std::out_of_range("out of range - operator++()");
     ++iter;
+      
     if (iter == myMap->HashTable[index].end())
     {
       for (size_type i=index+1; i!=myMap->SIZE; ++i)
         if(!myMap->HashTable[i].empty())
         {
           iter=myMap->HashTable[i].begin();
+          index=i;
           return *this;
         }
+        *this = myMap->end();
+        return *this;
     }
     return *this;
   }
@@ -274,12 +315,23 @@ public:
     if (*this == myMap->begin())
             throw std::out_of_range("out of range - operator--()");
     
+    if (*this == myMap->end())
+      for (size_type i=SIZE-1; i>=0; --i)
+        if(!myMap->HashTable[i].empty())
+        {
+          iter=myMap->HashTable[i].end();
+          index=i;
+          --iter;
+          return *this;
+        }
+        
     if (iter == myMap->HashTable[index].begin())
     {
       for (size_type i=index-1; i>=0; --i)
         if(!myMap->HashTable[i].empty())
         {
           iter=myMap->HashTable[i].end();
+          index=i;
           --iter;
           return *this;
         }
@@ -298,6 +350,8 @@ public:
 
   reference operator*() const
   {
+    if (index==SIZE && iter==myMap->HashTable[SIZE].end())
+      throw std::out_of_range("dereferencing from endIterator");
     return *iter;
   }
 
@@ -326,9 +380,9 @@ public:
   using list_iter = typename std::list<value_type>::iterator;
 
 private:
-    const HashMap *myMap;
-    size_type index;
-    list_iter iter;
+    //const HashMap *myMap;
+    //size_type index;
+    //list_iter iter;
     
 public:
   explicit Iterator(const HashMap* my, list_iter it, size_type in) : ConstIterator(my,it,in)
