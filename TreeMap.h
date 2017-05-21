@@ -29,38 +29,43 @@ public:
   class Node
   {
 		public:
-		value_type value;
+		value_type* value;
 		Node* left;
 		Node* right;
 		Node* parent;
-		Node() : left(nullptr), right(nullptr), parent(nullptr) {}
-		Node(value_type val, Node* parent): value(val), left(nullptr), right(nullptr), parent(parent)
+		Node() : left(nullptr), right(nullptr), parent(nullptr), value(nullptr) {}
+		Node(value_type val, Node* parent): left(nullptr), right(nullptr), parent(parent)
 		{
-			//value=value_type(key,val);
+			value=new value_type(val);
 			//Node::parent=parent;
+		}
+		~Node()
+		{
+			if (value)
+				delete value;
 		}
 		key_type getKey()
 		{
-			return value.first;
+			return value->first;
 		}
 		mapped_type& getValue()
 		{
-			return value.second;
+			return value->second;
 		}
 		value_type& getPair()
 		{
-			return value;
+			return *value;
 		}
 		Node& operator=(const Node& other)
 		{
-			value=other.value;
+			value=other->value;
 			left=other->left;
 			right=other->right;
 			parent=other->parent;
 		}
 		bool operator==(const Node& other)
 		{
-			return value==other.value && left==other->left && right==other->right && parent==other->parent;
+			return value==other->value && left==other->left && right==other->right && parent==other->parent;
 		}
 		bool operator!=(const Node& other)
 		{
@@ -233,16 +238,25 @@ public:
 
   void remove(const key_type& key)
   {
-    remove(find(key));
+		key_type k=key;
+    remove(find(k));
   }
 
   void remove(const const_iterator& it)
   {
-    Node* temp=it.node;
+		remove(it.node);
+	}
+	
+  void remove(Node* temp)
+  {
+    //Node* temp=it.node;
     
-    if (temp == nullptr || root == nullptr)
-			throw std::out_of_range("remove from empty map");
+    if (temp == nullptr)
+			throw std::out_of_range("iterator is null");
 		
+		   if (root == nullptr)
+		throw std::out_of_range("remove from empty map");
+			
 		//no children
 		if(temp->left == nullptr && temp->right == nullptr)
 		{
@@ -299,18 +313,38 @@ public:
 		else //both children
 		{
 			Node* replacement = temp->right;
+			
 			while(replacement->left != nullptr)
 				replacement=replacement->left;
+				
+			value_type* val;
+			val = new value_type(replacement->value->first,replacement->value->second);
 			
-			replacement->parent=temp->parent;
-			replacement->right=temp->right;
+			delete temp->value;
+			temp->value=val;
+			
+			if (temp->value == temp->right->value)
+				temp->right=nullptr;
+			
+			remove(replacement);
+			
+			return;
+			/*replacement->parent=temp->parent;
+			if (replacement->right != temp->right)
+				replacement->right=temp->right;
+			else
+				replacement->right=nullptr;
 			replacement->left=temp->left;
-			if (temp==temp->parent->left)
-				temp->parent->left=replacement;
-			else if (temp==temp->parent->right)
-				temp->parent->right=replacement;
 			temp->left->parent=replacement;
 			temp->right->parent=replacement;
+			if (temp != root)
+			{
+				if (temp==temp->parent->left)
+					temp->parent->left=replacement;
+				else if (temp==temp->parent->right)
+					temp->parent->right=replacement;
+			}*/
+			
 		}
 		
 		
