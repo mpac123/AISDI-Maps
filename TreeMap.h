@@ -5,6 +5,7 @@
 #include <initializer_list>
 #include <stdexcept>
 #include <utility>
+#include <iostream>
 
 namespace aisdi
 {
@@ -27,22 +28,28 @@ public:
   
   class Node
   {
+		public:
 		value_type value;
 		Node* left;
 		Node* right;
 		Node* parent;
 		Node() : left(nullptr), right(nullptr), parent(nullptr) {}
-		Node(const key_type key, mapped_type val, Node* parent): Node()
+		Node(value_type val, Node* parent): value(val), left(nullptr), right(nullptr), parent(parent)
 		{
-			value=std::make_pair(key,val);
+			//value=value_type(key,val);
+			//Node::parent=parent;
 		}
 		key_type getKey()
 		{
 			return value.first;
 		}
-		mapped_type getValue()
+		mapped_type& getValue()
 		{
 			return value.second;
+		}
+		value_type& getPair()
+		{
+			return value;
 		}
 		Node& operator=(const Node& other)
 		{
@@ -57,7 +64,7 @@ public:
 		}
 		bool operator!=(const Node& other)
 		{
-			return !(*this)==other;
+			return !((*this)==other);
 		}
 		
 	};
@@ -71,8 +78,8 @@ public:
   ~TreeMap()
   {
 		size_type s=size;
-		for(int i=0; i<s; ++i)
-			remove(root);
+		for(size_type i=0; i<s; ++i)
+			remove(root->getKey());
 	}
 	
   TreeMap(std::initializer_list<value_type> list) : TreeMap()
@@ -83,11 +90,11 @@ public:
 
   TreeMap(const TreeMap& other) : TreeMap()
   {
-    for (auto it = other.cbegin(); it != other.cend(); ++it){
+    for (auto it = other.cbegin(); it != other.cend(); ++it)
         this->operator[]((*it).first) = (*it).second;
   }
 
-  TreeMap(TreeMap&& other)
+  TreeMap(TreeMap&& other) : TreeMap()
   {
     root=other.root;
     size=other.size;
@@ -95,17 +102,19 @@ public:
     other.size=0;
   }
 
-  TreeMap& operator=(const TreeMap& other) : TreeMap()
+  TreeMap& operator=(const TreeMap& other) 
   {
     if(this==&other)
 			return *this;
 		
 		size_type s=size;
-		for(int i=0; i<s; ++i)
-			remove(root);
+		for(size_type i=0; i<s; ++i)
+			remove(root->getKey());
 		
-		for (auto it = other.cbegin(); it != other.cend(); ++it){
+		for (auto it = other.cbegin(); it != other.cend(); ++it)
         this->operator[]((*it).first) = (*it).second;
+        
+    return *this;
   }
 
   TreeMap& operator=(TreeMap&& other)
@@ -130,29 +139,30 @@ public:
     while(temp!=nullptr)
     {
 			currentParent=temp;
-			if(key==temp.getKey())
-				return temp.getValue();
-			else if(key>temp.getKey())
+			if(key==temp->getKey())
+				return temp->getValue();
+			else if(key>temp->getKey())
 				temp=temp->right;
-			else if (key<temp.getKey())
+			else if (key<temp->getKey())
 				temp=temp->left;
 		}
 		
-		Node* newNode = new Node(key,mapped_type{},parent);
+		Node* newNode = new Node(std::make_pair(key,mapped_type{}),currentParent);
+		++size;
 		
-		if (parent!=nullptr)
+		if (currentParent!=nullptr)
 		{
-			if (key < parent.getKey())
-				parent->left=newNode;
+			if (key < currentParent->getKey())
+				currentParent->left=newNode;
 			else
-				parent->right=newNode;
+				currentParent->right=newNode;
 		}
 		else
 			root=newNode;
 			
-		++size;
 		
-		return newNode.getValue();
+		
+		return newNode->getValue();
   }
 
   const mapped_type& valueOf(const key_type& key) const
@@ -161,11 +171,11 @@ public:
     
     while(temp!=nullptr)
     {
-			if(key==temp.getKey())
-				return temp.getValue();
-			else if(key>temp.getKey())
+			if(key==temp->getKey())
+				return temp->getValue();
+			else if(key>temp->getKey())
 				temp=temp->right;
-			else if (key<temp.getKey())
+			else if (key<temp->getKey())
 				temp=temp->left;
 		}
 		
@@ -178,11 +188,11 @@ public:
     
     while(temp!=nullptr)
     {
-			if(key==temp.getKey())
-				return temp.getValue();
-			else if(key>temp.getKey())
+			if(key==temp->getKey())
+				return temp->getValue();
+			else if(key>temp->getKey())
 				temp=temp->right;
-			else if (key<temp.getKey())
+			else if (key<temp->getKey())
 				temp=temp->left;
 		}
 		
@@ -195,11 +205,11 @@ public:
     
     while(temp!=nullptr)
     {
-			if(key==temp.getKey())
+			if(key==temp->getKey())
 				return ConstIterator(temp,this);
-			if(key>temp.getKey())
+			if(key>temp->getKey())
 				temp=temp->right;
-			else if (key<temp.getKey())
+			else if (key<temp->getKey())
 				temp=temp->left;
 		}
 		return cend();
@@ -211,11 +221,11 @@ public:
     
     while(temp!=nullptr)
     {
-			if(key==temp.getKey())
+			if(key==temp->getKey())
 				return Iterator(temp,this);
-			if(key>temp.getKey())
+			if(key>temp->getKey())
 				temp=temp->right;
-			else if (key<temp.getKey())
+			else if (key<temp->getKey())
 				temp=temp->left;
 		}
 		return end();
@@ -236,44 +246,74 @@ public:
 		//no children
 		if(temp->left == nullptr && temp->right == nullptr)
 		{
-			if (parent == nullptr)
+			if (temp->parent == nullptr)
 				root=nullptr;
 			else
-				if (temp == parent->left)
-					parent->left=nullptr;
-				else if (temp == parent->right)
-					parent->right=nullptr;
+				if (temp == temp->parent->left)
+					temp->parent->left=nullptr;
+				else if (temp == temp->parent->right)
+					temp->parent->right=nullptr;
 		}
 		else if (temp->left!=nullptr and temp->right == nullptr) //only left child
 		{
-			if (parent == nullptr)
+			if (temp->parent == nullptr)
+			{
 				root=temp->left;
+				temp->left->parent=nullptr;
+			}
 			else
-				if (temp == parent->left)
-					parent->left=temp->left;
-				else if (temp == parent->right)
-					parent->right=temp->left;
+				if (temp == temp->parent->left)
+				{
+					temp->parent->left=temp->left;
+					temp->left->parent=temp->parent;
+				}
+				else if (temp == temp->parent->right)
+				{
+					temp->parent->right=temp->left;
+					temp->left->parent=temp->parent;
+				}
+				else 
+					throw std::out_of_range("ooops");
 		}
 		else if (temp->left==nullptr and temp->right != nullptr) //only right child
 		{
-			if (parent == nullptr)
+			if (temp->parent == nullptr)
+			{
 				root=temp->right;
+				temp->right->parent=nullptr;
+			}
 			else
-				if (temp == parent->left)
-					parent->left=temp->right;
-				else if (temp == parent->right)
-					parent->right=temp->right;
+				if (temp == temp->parent->left)
+				{
+					temp->parent->left=temp->right;
+					temp->right->parent=temp->parent;
+				}
+				else if (temp == temp->parent->right)
+				{
+					temp->parent->right=temp->right;
+					temp->right->parent=temp->parent;
+				}
+				else 
+					throw std::out_of_range("ooops");
 		}
 		else //both children
 		{
 			Node* replacement = temp->right;
 			while(replacement->left != nullptr)
 				replacement=replacement->left;
-				
-			temp.value=replacement.value;
-			remove(replacement.getKey());
-			return;
+			
+			replacement->parent=temp->parent;
+			replacement->right=temp->right;
+			replacement->left=temp->left;
+			if (temp==temp->parent->left)
+				temp->parent->left=replacement;
+			else if (temp==temp->parent->right)
+				temp->parent->right=replacement;
+			temp->left->parent=replacement;
+			temp->right->parent=replacement;
 		}
+		
+		
 		--size;
 		delete temp;
   }
@@ -288,8 +328,9 @@ public:
 		if (size!=other.size)
 			return false;
 			
-		if (root!=other.root)
-			return false;
+		for (auto it1=begin(), it2=other.begin(); it1!=end() || it2!=other.end(); ++it1, ++it2)
+			if ((*it1).first != (*it2).first || (*it1).second != (*it2).second)
+				return false;
 		
 		return true;
   }
@@ -352,50 +393,106 @@ public:
   using iterator_category = std::bidirectional_iterator_tag;
   using value_type = typename TreeMap::value_type;
   using pointer = const typename TreeMap::value_type*;
+  
+  const TreeMap *map;
+  Node *node;
 
-  explicit ConstIterator()
+  explicit ConstIterator() : map(nullptr), node(nullptr)
   {}
 
-  ConstIterator(const ConstIterator& other)
-  {
-    (void)other;
-    throw std::runtime_error("TODO");
-  }
+	ConstIterator(Node* n, const TreeMap* m) : map(m), node(n)
+	{}
+	
+  ConstIterator(const ConstIterator& other) : map(other.map), node(other.node)
+  {}
 
   ConstIterator& operator++()
   {
-    throw std::runtime_error("TODO");
+    if (node==nullptr)
+			throw std::out_of_range("increasing end()");
+		
+		if(node->right != nullptr)
+		{
+			node=node->right;
+			while(node->left != nullptr)
+				node=node->left;
+		}
+		else
+		{
+			while(node->parent != nullptr && node->parent->right==node)
+				node=node->parent;
+			if(node->parent != nullptr)
+				node=node->parent;
+			else
+				node=nullptr;
+		}
+		return *this;
   }
 
   ConstIterator operator++(int)
   {
-    throw std::runtime_error("TODO");
+    auto result=*this;
+    operator++();
+    return result;
   }
 
   ConstIterator& operator--()
   {
-    throw std::runtime_error("TODO");
+    if (*this==map->begin() || map->size <= 0)
+			throw std::out_of_range("decreasing begin or empty map");
+		if (node == nullptr)
+		{
+			Node* temp=map->root;
+			
+			while(temp->right!=nullptr)
+				temp=temp->right;
+			
+			node=temp;
+			return *this;
+		}
+		else if (node->left != nullptr)
+		{
+			node=node->left;
+			while(node->right!=nullptr)
+				node=node->right;
+		}
+		else
+		{
+			while(node->parent!=nullptr && node->parent->left == node)
+				node=node->parent;
+				
+			if (node->parent != nullptr)
+				node=node->parent;
+			else
+				node=nullptr;
+		}
+		return *this;
   }
 
   ConstIterator operator--(int)
   {
-    throw std::runtime_error("TODO");
+    auto result=*this;
+    operator--();
+    return result;
   }
 
   reference operator*() const
   {
-    throw std::runtime_error("TODO");
+		if (*this==map->end())	
+			throw std::out_of_range("reference to end()");
+    return node->getPair();
   }
 
   pointer operator->() const
   {
+		if (*this==map->end())	
+			throw std::out_of_range("pointer to end()");
     return &this->operator*();
   }
 
   bool operator==(const ConstIterator& other) const
   {
-    (void)other;
-    throw std::runtime_error("TODO");
+    return node==other.node && map==other.map;
   }
 
   bool operator!=(const ConstIterator& other) const
@@ -411,8 +508,11 @@ public:
   using reference = typename TreeMap::reference;
   using pointer = typename TreeMap::value_type*;
 
-  explicit Iterator()
+  explicit Iterator() : ConstIterator()
   {}
+
+	Iterator(Node* n, const TreeMap* m) : ConstIterator(n,m)
+	{}
 
   Iterator(const ConstIterator& other)
     : ConstIterator(other)
@@ -458,4 +558,4 @@ public:
 
 }
 
-#endif /* AISDI_MAPS_MAP_H 
+#endif //AISDI_MAPS_MAP_H 
