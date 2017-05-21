@@ -683,6 +683,16 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(GivenMapWhichIsBalanced_WhenRemovingElementWhichIs
   thenMapContainsItems(map, {{ 69, "Chuck" }, {63,"Eve"}, {70, "Filip"}, {75, "Ginny"}, { 72, "Alice" }});
 }
 
+BOOST_AUTO_TEST_CASE_TEMPLATE(GivenMapWhichIsBalanced_WhenRemovingBegin_ThenItIsRemoved,
+                              K,
+                              TestedKeyTypes)
+{
+  Map<K> map = { { 69, "Chuck" }, { 58, "Bob" }, { 72, "Alice" }, {63,"Eve"}, {70, "Filip"}, {75, "Ginny"} };
+  map.remove(map.begin());
+
+  thenMapContainsItems(map, {{ 69, "Chuck" }, {63,"Eve"}, {70, "Filip"}, {75, "Ginny"}, { 72, "Alice" }});
+}
+
 
 // ConstIterator is tested via Iterator methods.
 // If Iterator methods are to be changed, then new ConstIterator tests are required.
